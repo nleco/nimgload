@@ -170,6 +170,7 @@ NImgLoad = (function(d) {
 			h = util.getWindowSize().height,
 			i, el, off;
 		
+		//todo: may want to remove items already processed so that the array only has images not processed.
 		for (i = 0; i < l; i++) {
 			el = allImgs[i];
 			
