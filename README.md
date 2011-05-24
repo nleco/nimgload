@@ -1,6 +1,6 @@
 # nimgload
 
-Dependency free javascript to help load images once they are in view.
+Dependency free javascript to help load images once they are above the fold (in view).
 
 ## Installation
 
