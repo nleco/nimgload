@@ -12,13 +12,15 @@
  *
  * Note: will look at all images on your site and only process those with data-src set up.
  */
-NImgLoad = (function(d) {
+NImgLoad = (function(doc) {
 	var defaults = {
-		imgClass : 'nimg-done',
-		invisClass : 'nimg-invis',
+		class : {
+			'bgImg' : 'nimg-bg-none'
+		},
 		threshold : 0
 	},
-	allImgs = d.getElementsByTagName('img'),
+	allImgs = [],
+	allBgImgs = [],
 	util = {
 		/**
 		 * attaches an event to an element
@@ -88,7 +90,7 @@ NImgLoad = (function(d) {
 		 * adds a class from an element only if it isn't already there
 		 **/
 		addClass : function(item, class) {
-			if (item == undefined || class == undefined)
+			if (item == undefined || class == undefined || item.className == undefined)
 				return;
 				
 			var s = item.className.split(' '),
@@ -111,7 +113,7 @@ NImgLoad = (function(d) {
 		 * removes a class from an element
 		 **/
 		removeClass : function(item, class) {
-			if (item == undefined || class == undefined)
+			if (item == undefined || class == undefined || item.className == undefined)
 				return;
 				
 			var s = item.className.split(' '),
@@ -130,7 +132,7 @@ NImgLoad = (function(d) {
 		 * finds if an element has a class
 		 **/
 		hasClass : function(item, class) {
-			if (item == undefined || class == undefined)
+			if (item == undefined || class == undefined || item.className == undefined)
 				return false;
 				
 			var s = item.className.split(' '),
@@ -158,6 +160,17 @@ NImgLoad = (function(d) {
 				el = el.offsetParent;
 			}
 			return {top: _y, left: _x};
+		},
+		
+		removeNulls : function(list) {
+			do {
+				ix = list.indexOf(null);
+				if (ix >= 0) {
+					list.splice(ix, 1);
+				}
+			} while (ix >= 0);
+			
+			return list;
 		}
 	}
 	
@@ -166,30 +179,94 @@ NImgLoad = (function(d) {
 	 **/
 	function trigger() {
 		var l = allImgs.length,
+			lbg = allBgImgs.length,
 			y = util.getWindowScroll().y,
 			h = util.getWindowSize().height,
-			i, el, off;
-		
-		//todo: may want to remove items already processed so that the array only has images not processed.
-		for (i = 0; i < l; i++) {
-			el = allImgs[i];
+			i, el, off, ix;
+
+		//remove items already processed so that the array only has images not processed.
+		if (l) {
+			for (i = 0; i < l; i++) {
+				el = allImgs[i];
 			
-			if (!el.getAttribute('src') && el.getAttribute('data-src') && y+h >= util.getOffset(el).top-defaults.threshold) {
-				el.setAttribute('src', el.getAttribute('data-src'));
-				el.removeAttribute('data-src');
-				util.addClass(el, defaults.imgClass);
+				if (!el.getAttribute('src') && el.getAttribute('data-src') && y+h >= util.getOffset(el).top-defaults.threshold) {
+					el.setAttribute('src', el.getAttribute('data-src'));
+					el.removeAttribute('data-src');
+					allImgs[i] = null;
+				}
+			}
+		
+			allImgs = util.removeNulls(allImgs);
+		}
+		
+		//remove those with bg images
+		if (lbg) {
+			for (i = 0; i < lbg; i++) {
+				el = allBgImgs[i];
+			
+				if (y+h >= util.getOffset(el).top-defaults.threshold) {
+					util.removeClass(el, defaults.class.bgImg);
+					allBgImgs[i] = null;
+				}
+			}
+			
+			allBgImgs = util.removeNulls(allBgImgs);
+		}
+	}
+	
+	/**
+	 * will set the images we'll bother to look at
+	 **/
+	function initImgs(list) {			
+		var l = list.length,
+			i, item;
+		
+		for (i = 0; i < l; i++) {
+			item = list[i];
+			if (item.getAttribute('data-src')) {
+				allImgs.push(item);
 			}
 		}
 	}
 	
-	//start some initial binding
-	util.bind(window, 'scroll', function(){
-		trigger();
-	});
-	
+	/**
+	 * will set the objects with a specific class that we'll look at
+	 **/
+	function initClassedNodes(node) {
+		var c = node.childNodes,
+			l = c.length,
+			i;
+		
+		if (node.tagName == undefined)
+			return;
+			
+		if (util.hasClass(node, defaults.class.bgImg)) {
+			allBgImgs.push(node);
+		}
+
+		if (l) {
+			for (i = 0; i < l; i++) {
+				initClassedNodes(c[i]);
+			}
+		}
+	}
+
 	return {
 		init: function (opts) {
 			opts = opts || {};
+			
+			if (opts.bgImgClass) {
+				defaults.class.bgImg = opts.bgImgClass;
+			}
+			
+			//initialization
+			initImgs(doc.getElementsByTagName('img'));
+			initClassedNodes(doc.body);
+
+			//start some initial binding
+			util.bind(window, 'scroll', function(){
+				trigger();
+			});
 			
 			trigger();
 		},
